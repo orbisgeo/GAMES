@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FNF Corrigido</title>
+  <style>
+    body {
+      background: black;
+      color: white;
+      font-family: monospace;
+      text-align: center;
+      margin: 0;
+    }
+    #difficulty {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+      gap: 20px;
+    }
+    .difficulty-btn {
+      background: gray;
+      color: white;
+      padding: 5px 10px;
+      border: 2px solid white;
+      cursor: pointer;
+    }
+    .difficulty-btn:hover {
+      background: #444;
+    }
+    #game-container {
+      position: relative;
+      width: 500px;
+      height: 700px;
+      margin: auto;
+      background: linear-gradient(to bottom, #1a2b3c, #1a3b4c);
+      border: 2px solid white;
+      overflow: hidden;
+    }
+    .note, .key {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 50px;
+      font-weight: bold;
+    }
+    .note {
+      background: blue;
+      color: white;
+    }
+    .key {
+      bottom: 20px;
+      background: gray;
+      border: 2px solid white;
+      opacity: 0.3;
+      transition: 0.2s;
+    }
+    .key.green {
+      background: green;
+      opacity: 1;
+    }
+    .key.red {
+      background: red;
+      opacity: 1;
+    }
+
+    .A { left: 80px; background: red; }
+    .S { left: 160px; background: green; }
+    .K { left: 240px; background: orange; }
+    .L { left: 320px; background: purple; }
+
+    #score {
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎵 Jogo de Ritmo</h1>
+  <div id="difficulty">
+    <button class="difficulty-btn" onclick="setDifficulty('easy')">Fácil</button>
+    <button class="difficulty-btn" onclick="setDifficulty('medium')">Médio</button>
+    <button class="difficulty-btn" onclick="setDifficulty('hard')">Difícil</button>
+    <button class="difficulty-btn" onclick="setDifficulty('insane')">Insano</button>
+    <button class="difficulty-btn" onclick="setDifficulty('impossible')">Impossível 😈</button>
+  </div>
+  <p id="score">Pontos: 0 | Precisão: 0%</p>
+  <div id="game-container">
+    <div class="key A">A</div>
+    <div class="key S">S</div>
+    <div class="key K">K</div>
+    <div class="key L">L</div>
+  </div>
+
+  <audio id="hit-sound" src="https://freesound.org/data/previews/341/341695_5260877-lq.mp3"></audio>
+  <audio id="miss-sound" src="https://freesound.org/data/previews/216/216090_1979597-lq.mp3"></audio>
+
+  <script>
+    const keys = ['A', 'S', 'K', 'L'];
+    const container = document.getElementById('game-container');
+    const scoreEl = document.getElementById('score');
+    let score = 0, total = 0, acertos = 0;
+    let noteSpeed = 4;
+    let spawnInterval = 1000;
+    let noteInterval;
+    
+    const keyLights = {};
+    keys.forEach(k => {
+      keyLights[k] = document.querySelector(`.key.${k}`);
+    });
+
+    function setDifficulty(difficulty) {
+      if (difficulty === 'easy') {
+        noteSpeed = 3;
+        spawnInterval = 1400;
+      } else if (difficulty === 'medium') {
+        noteSpeed = 5;
+        spawnInterval = 1000;
+      } else if (difficulty === 'hard') {
+        noteSpeed = 8;
+        spawnInterval = 600;
+      } else if (difficulty === 'insane') {
+        noteSpeed = 10;
+        spawnInterval = 400;
+      } else if (difficulty === 'impossible') {
+        noteSpeed = 15;
+        spawnInterval = 200;
+      }
+      clearInterval(noteInterval);
+      noteInterval = setInterval(spawnNote, spawnInterval);
+    }
+
+    function spawnNote() {
+      const key = keys[Math.floor(Math.random() * keys.length)];
+      const note = document.createElement('div');
+      note.className = `note ${key}`;
+      note.innerText = key;
+      note.style.left = keyLights[key].style.left;
+      note.style.top = '0px';
+      note.dataset.key = key;
+      container.appendChild(note);
+    }
+
+    function moveNotes() {
+      const notes = document.querySelectorAll('.note');
+      notes.forEach(note => {
+        let top = parseInt(note.style.top);
+        top += noteSpeed;
+        note.style.top = top + 'px';
+
+        if (top > 700) {
+          container.removeChild(note);
+          total++;
+          updateScore();
+        }
+      });
+    }
+
+    function updateScore() {
+      const precision = total ? Math.round((acertos / total) * 100) : 0;
+      scoreEl.innerText = `Pontos: ${score} | Precisão: ${precision}%`;
+    }
+
+    function checkCollision(note, keyEl) {
+      const noteRect = note.getBoundingClientRect();
+      const keyRect = keyEl.getBoundingClientRect();
+
+      return !(
+        noteRect.bottom < keyRect.top ||
+        noteRect.top > keyRect.bottom ||
+        noteRect.right < keyRect.left ||
+        noteRect.left > keyRect.right
+      );
+    }
+
+    document.addEventListener('keydown', e => {
+      const key = e.key.toUpperCase();
+      if (!keys.includes(key)) return;
+
+      const keyEl = keyLights[key];
+      let hit = false;
+
+      const notes = document.querySelectorAll(`.note.${key}`);
+      for (let note of notes) {
+        if (checkCollision(note, keyEl)) {
+          container.removeChild(note);
+          hit = true;
+          break;
+        }
+      }
+
+      if (hit) {
+        score += 10;
+        acertos++;
+        keyEl.classList.add('green');
+        document.getElementById('hit-sound').play();
+      } else {
+        keyEl.classList.add('red');
+        document.getElementById('miss-sound').play();
+      }
+
+      total++;
+      updateScore();
+
+      setTimeout(() => {
+        keyEl.classList.remove('green', 'red');
+      }, 200);
+    });
+
+    setInterval(moveNotes, 20);
+    setInterval(spawnNote, spawnInterval);
+  </script>
+</body>
+</html>
